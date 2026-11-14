@@ -2,7 +2,7 @@
 
 **Visão Executiva:** O *Leitura em Foco* é um aplicativo mobile desenhado para revolucionar a jornada de aprendizado de estudantes de tecnologia com TDAH (ou dificuldades de foco). Nascido do desafio **CitizenTech da FIAP**, o projeto utiliza inteligência artificial para quebrar a densidade de materiais técnicos longos, convertendo-os em trilhas de *micro-learning* interativas, garantindo retenção de conhecimento sem sobrecarga cognitiva.
 
-🌐 **[Acesse o Protótipo Navegável do Aplicativo aqui](COLOQUE_SEU_LINK_DO_PAGES_AQUI)**
+🌐 **[Acesse o Protótipo Navegável do Aplicativo aqui](https://bruno-dacunha.github.io/leitura-em-foco-citizentech/)**
 
 
 
