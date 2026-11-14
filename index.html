@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Leitura em Foco — protótipo navegável</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EDF0EB; --surface:#F8FAF6; --ink:#1E2A2C; --muted:#56635F;
+  --accent:#1F5F7A; --accent-soft:#D5E5EB; --on-accent:#F8FAF6; --mark:#9A6414; --mark-soft:#F4E5C6;
+  --ok:#2B7349; --ok-soft:#DCEFE2; --bad:#A33A2E; --bad-soft:#F6DEDA;
+  --code-bg:#E2E8E0; --line:#C9D1C8; --hl:#F1D9A0;
+  --k:#1F5F7A; --s:#8A4B12; --c:#6B7774; --n:#9A6414;
+  --page:#DDE3DB; --bezel:#2A3536;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#141A1B; --surface:#1B2324; --ink:#E2E8E3; --muted:#9AA7A3;
+    --accent:#7DBAD3; --accent-soft:#1E3741; --on-accent:#10181A; --mark:#E3AE55; --mark-soft:#3A2F1B;
+    --ok:#6CC08E; --ok-soft:#1B3325; --bad:#E57A6E; --bad-soft:#3D1F1B;
+    --code-bg:#11181A; --line:#2E3A3B; --hl:#4A3B1A;
+    --k:#7DBAD3; --s:#E0A574; --c:#7E8B88; --n:#E3AE55;
+    --page:#0E1314; --bezel:#3A4647;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141A1B; --surface:#1B2324; --ink:#E2E8E3; --muted:#9AA7A3;
+  --accent:#7DBAD3; --accent-soft:#1E3741; --on-accent:#10181A; --mark:#E3AE55; --mark-soft:#3A2F1B;
+  --ok:#6CC08E; --ok-soft:#1B3325; --bad:#E57A6E; --bad-soft:#3D1F1B;
+  --code-bg:#11181A; --line:#2E3A3B; --hl:#4A3B1A;
+  --k:#7DBAD3; --s:#E0A574; --c:#7E8B88; --n:#E3AE55;
+  --page:#0E1314; --bezel:#3A4647;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%}
+body{margin:0;height:100%;background:var(--page);color:var(--ink);font-family:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
+
+.stage{min-height:100%;display:flex;align-items:center;justify-content:center;gap:clamp(2rem,5vw,4.5rem);padding:24px}
+.panel{width:min(22rem,34vw);color:var(--ink)}
+.panel h1{font-size:2.1rem;line-height:1.1;margin:0 0 .6rem;letter-spacing:-.01em}
+.panel > p{margin:0 0 .8rem;color:var(--muted);font-size:1rem}
+.panel .sim{font-size:.92rem;border-left:3px solid var(--mark);padding-left:.75rem;margin:1rem 0 1.4rem;color:var(--muted)}
+.telas{list-style:none;margin:0;padding:0;counter-reset:t}
+.telas li{counter-increment:t}
+.telas a{display:flex;gap:.7rem;padding:.38rem .5rem;border-radius:8px;color:var(--ink);text-decoration:none;font-size:.97rem}
+.telas a::before{content:counter(t);flex:none;width:1.6rem;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.telas a:hover{background:var(--surface)}
+.telas a[aria-current="true"]{background:var(--surface);font-weight:700}
+.telas a[aria-current="true"]::before{color:var(--accent)}
+.telas .d{display:block;font-weight:400;color:var(--muted);font-size:.9rem;margin-top:.1rem}
+.panel .reset{margin-top:1.2rem;background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;font-size:.95rem}
+
+.device{position:relative;flex:none;width:390px;height:min(844px,calc(100vh - 48px));border:11px solid var(--bezel);border-radius:50px;background:var(--bg);overflow:hidden;box-shadow:0 30px 60px -30px rgba(20,30,30,.45)}
+.status{position:absolute;inset:0 0 auto;height:40px;display:flex;justify-content:space-between;align-items:center;padding:0 26px 0 30px;font-size:.85rem;font-weight:700;z-index:3;background:var(--bg)}
+.status .icons{display:flex;gap:6px;align-items:center}
+.app{position:absolute;inset:40px 0 0;display:flex;flex-direction:column;font-size:var(--fs,1.06rem)}
+
+@media (max-width:820px){
+  .panel{display:none}
+  .stage{padding:0;display:block;height:100%}
+  .device{width:100%;height:100%;border:0;border-radius:0;box-shadow:none}
+  .status{display:none}
+  .app{inset:0}
+}
+
+.bar{flex:none;display:flex;align-items:center;gap:.5rem;padding:.6rem .9rem;border-bottom:1px solid var(--line);background:var(--bg);min-height:52px}
+.bar .t{flex:1;min-width:0;text-align:center;font-weight:700;font-size:.98rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .sp{width:5.5rem;flex:none}
+.back{flex:none;width:5.5rem;display:flex;align-items:center;gap:.15rem;background:none;border:0;padding:.3rem .2rem;color:var(--accent);font-size:.95rem}
+.body{flex:1;overflow-y:auto;overflow-x:hidden;padding:1.25rem 1.15rem 1.5rem;position:relative}
+.body p,.body li,.bloco-texto{white-space:pre-wrap}
+.foot{flex:none;border-top:1px solid var(--line);background:var(--bg);padding:.75rem 1rem calc(.75rem + env(safe-area-inset-bottom,0px));display:flex;gap:.75rem;align-items:center;justify-content:space-between}
+.foot.col{flex-direction:column;align-items:stretch}
+
+h2{font-size:1.5em;line-height:1.2;margin:.1rem 0 .9rem;letter-spacing:-.005em}
+h3{font-size:1em;margin:1.4rem 0 .45rem}
+p{margin:0 0 .9rem}
+ul{margin:0 0 .9rem;padding-left:1.15rem}
+li{margin:.3rem 0}
+.muted{color:var(--muted)}
+code.i{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;font-size:.85em;background:var(--code-bg);padding:.06em .3em;border-radius:4px}
+
+.primary{background:var(--accent);color:var(--on-accent);border:0;border-radius:999px;padding:.8rem 1.4rem;font-weight:700;font-size:1rem}
+.primary:disabled{opacity:.45;cursor:default}
+.primary.wide{width:100%}
+.ghost{border:1.5px solid var(--accent);background:none;color:var(--accent);border-radius:999px;padding:.55rem 1.1rem;font-size:.97rem}
+.ghost[aria-expanded="true"],.ghost[aria-pressed="true"]{background:var(--accent-soft)}
+.link{background:none;border:0;color:var(--accent);padding:.5rem .2rem;font-size:.97rem}
+.prev{background:none;border:0;color:var(--muted);padding:.6rem .3rem;font-size:.97rem}
+.prev:disabled{visibility:hidden}
+.row{display:flex;flex-wrap:wrap;gap:.55rem;margin:.9rem 0}
+
+.welcome{display:flex;flex-direction:column;justify-content:center;min-height:100%;padding-bottom:1rem}
+.welcome svg{width:100%;max-width:17rem;height:auto;margin:0 0 2rem}
+.welcome h2{font-size:2.1em;line-height:1.08;margin-bottom:.8rem}
+.welcome p{font-size:1.08em;color:var(--muted);max-width:30ch}
+
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:.3rem;margin:.4rem 0 1.4rem}
+.seg button{border:0;background:none;border-radius:10px;padding:.65rem .3rem;font-size:.95rem}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);font-weight:700}
+.preview{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:1rem 1.1rem}
+.preview b{display:block;margin-bottom:.2rem}
+.texto-menor{font-size:0.96rem}
+.texto-maior{font-size:1.2rem}
+
+.empty{text-align:center;padding:2.5rem 1rem;border:1.5px dashed var(--line);border-radius:16px;margin-top:1rem}
+.empty svg{width:4.5rem;height:auto;margin-bottom:.8rem}
+.empty p{color:var(--muted);margin-left:auto;margin-right:auto;max-width:26ch}
+.doc{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:1rem 1.05rem;margin-top:.9rem}
+.doc h3{margin:0 0 .3rem;font-size:1.08em}
+.tags{display:flex;flex-wrap:wrap;gap:.35rem;margin:.35rem 0 .2rem}
+.tag{display:inline-flex;align-items:center;gap:.3rem;font-size:.8rem;border-radius:999px;padding:.12rem .55rem;background:var(--accent-soft);color:var(--accent)}
+.tag.ok{background:var(--ok-soft);color:var(--ok)}
+.tag.mk{background:var(--mark-soft);color:var(--mark)}
+.pbar{height:6px;border-radius:3px;background:var(--line);margin:.75rem 0 .3rem;overflow:hidden}
+.pbar span{display:block;height:100%;background:var(--accent)}
+.facts-mini{font-size:.9rem;color:var(--muted);margin:.35rem 0 0}
+.facts-mini div{margin:.15rem 0}
+
+textarea{width:100%;min-height:13rem;resize:none;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:.9rem;font:inherit;font-size:.95em;line-height:1.5}
+textarea:focus{outline:none;border-color:var(--accent)}
+.loaded{display:flex;gap:.8rem;align-items:center;background:var(--surface);border:1.5px solid var(--accent);border-radius:14px;padding:.9rem}
+.loaded svg{flex:none;width:2.2rem;height:auto}
+.loaded b{display:block}
+.loaded small{color:var(--muted)}
+.privacy{font-size:.88rem;color:var(--muted);border-left:3px solid var(--line);padding-left:.7rem;margin:1rem 0 0}
+
+.steps{list-style:none;padding:0;margin:1rem 0}
+.steps li{display:flex;gap:.8rem;align-items:flex-start;padding:.7rem 0;border-top:1px solid var(--line);margin:0}
+.dot{flex:none;width:1.35rem;height:1.35rem;border-radius:50%;border:2px solid var(--line);margin-top:.15rem;display:grid;place-items:center;font-size:.75rem;font-weight:700}
+.dot.ok{background:var(--ok);border-color:var(--ok);color:var(--surface)}
+.dot.run{border-color:var(--accent);border-top-color:transparent}
+@media (prefers-reduced-motion:no-preference){.dot.run{animation:spin 1s linear infinite}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.steps small{display:block;color:var(--muted);font-size:.88rem}
+
+.track{flex:none;display:flex;gap:3px;align-items:center;padding:.55rem .9rem .6rem;background:var(--bg);border-bottom:1px solid var(--line)}
+.sg{flex:1;height:7px;border:0;padding:0;border-radius:3px;background:var(--line)}
+.sg.done{background:var(--accent)}
+.sg.cur{background:var(--accent);box-shadow:0 0 0 2px var(--bg),0 0 0 3.5px var(--accent)}
+.sg.chk{flex:0 0 8px;height:8px;border-radius:2px;transform:rotate(45deg);background:var(--mark-soft);border:1.5px solid var(--mark)}
+.sg.chk.done,.sg.chk.cur{background:var(--mark)}
+.sg.pend{background:repeating-linear-gradient(90deg,var(--line) 0 3px,transparent 3px 6px)}
+.sg.gap{margin-left:6px}
+.meta{display:flex;justify-content:space-between;align-items:center;gap:.6rem;color:var(--muted);font-size:.88rem;margin-bottom:.35rem;min-height:2rem}
+.listen{display:inline-flex;align-items:center;gap:.35rem;border:1.5px solid var(--accent);background:none;color:var(--accent);border-radius:999px;padding:.25rem .75rem;font-size:.88rem}
+.listen[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.goal{font-size:1.15em;line-height:1.45;margin-bottom:1.1rem}
+.facts{display:grid;gap:.8rem;margin:1.1rem 0}
+.fact{border-left:3px solid var(--accent);padding:.05rem 0 .05rem .85rem}
+.fact b{display:block;font-weight:400;color:var(--muted);font-size:.88rem}
+.route{list-style:none;padding:0;margin:.4rem 0 1rem;counter-reset:r}
+.route li{display:flex;justify-content:space-between;gap:.8rem;padding:.5rem 0;border-top:1px solid var(--line);margin:0;counter-increment:r;font-size:.95em}
+.route li::before{content:counter(r);font-weight:700;color:var(--accent);width:1.2rem;flex:none}
+.route li span:first-of-type{flex:1}
+.route .t{color:var(--muted);white-space:nowrap;font-size:.9em}
+.terms{display:grid;gap:.5rem;margin:1rem 0}
+.term{background:var(--mark-soft);border-radius:10px;padding:.6rem .85rem;font-size:.93em}
+.term b{color:var(--mark);margin-right:.3rem}
+.code{margin:1rem -.2rem;border-radius:10px;background:var(--code-bg);overflow:hidden}
+.code .cap{font-size:.8rem;color:var(--muted);padding:.5rem .85rem 0}
+.code pre{margin:0;padding:.55rem 0 .75rem;overflow-x:auto;font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;font-size:.74rem;line-height:1.75}
+.ln{display:block;padding:0 .8rem 0 0;white-space:pre;transition:background .15s;cursor:pointer}
+.ln .no{display:inline-block;width:2.1rem;text-align:right;padding-right:.65rem;color:var(--c);user-select:none}
+.ln.on{background:var(--hl)}
+.tk{color:var(--k);font-weight:600}.ts{color:var(--s)}.tc{color:var(--c);font-style:italic}.tn{color:var(--n);font-weight:600}
+.notes{list-style:none;padding:0;margin:.6rem 0 1rem}
+.notes li{margin:0}
+.note{display:flex;gap:.65rem;width:100%;text-align:left;background:none;border:0;border-radius:8px;padding:.45rem .4rem;font-size:.93em;line-height:1.45}
+.note.on{background:var(--hl)}
+.note .lnum{flex:none;font-family:"JetBrains Mono",monospace;font-size:.72rem;color:var(--accent);border:1px solid var(--accent);border-radius:5px;padding:.05rem .35rem;height:fit-content;margin-top:.15rem;white-space:nowrap}
+.tip{font-size:.85rem;color:var(--muted);margin:-.2rem 0 .6rem}
+.result{border-left:3px solid var(--ok);background:var(--ok-soft);padding:.6rem .85rem;border-radius:0 10px 10px 0;margin:1rem 0;font-size:.93em}
+.result b{display:block;font-size:.85rem;color:var(--ok);margin-bottom:.1rem}
+.adapt{border:1px dashed var(--mark);border-radius:10px;padding:.6rem .85rem;margin:1rem 0;font-size:.9em}
+.adapt b{display:block;font-size:.85rem;color:var(--mark);margin-bottom:.1rem}
+table{border-collapse:collapse;width:100%;margin:.8rem 0 1rem;font-size:.92em}
+th,td{text-align:left;padding:.45rem .5rem;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:400}
+.tw{overflow-x:auto}
+.q{font-size:1.15em;line-height:1.45;margin-bottom:.8rem}
+.opts{display:grid;gap:.5rem;margin:.9rem 0}
+.opt{text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:.75rem .9rem;font-size:.97em;line-height:1.4}
+.opt:disabled{cursor:default}
+.opt.right{border-color:var(--ok);background:var(--ok-soft)}
+.opt.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.fb{margin-top:.9rem;padding:.75rem .9rem;border-radius:12px;background:var(--surface);font-size:.95em}
+.fb b{display:block;margin-bottom:.15rem}
+.chk-label{color:var(--mark);font-weight:700}
+.ess{list-style:none;padding:0;counter-reset:e}
+.ess li{counter-increment:e;display:flex;gap:.7rem;margin:.7rem 0}
+.ess li::before{content:counter(e);flex:none;width:1.6rem;height:1.6rem;border-radius:50%;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font-weight:700;font-size:.85rem;margin-top:.1rem}
+.scale{display:grid;grid-template-columns:repeat(5,1fr);gap:.4rem;margin:.5rem 0 .3rem}
+.scale button{border:1.5px solid var(--line);background:var(--surface);border-radius:10px;padding:.55rem 0;font-weight:700}
+.scale button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:var(--on-accent)}
+.scale-ends{display:flex;justify-content:space-between;font-size:.8rem;color:var(--muted)}
+
+.choices{display:grid;gap:.5rem;margin:.6rem 0 1.4rem}
+.choice{text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:.75rem .9rem;display:flex;justify-content:space-between;align-items:center}
+.choice[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.choice small{color:var(--muted)}
+.notif{display:flex;gap:.75rem;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:.85rem .9rem;box-shadow:0 10px 24px -16px rgba(20,30,30,.5)}
+.notif .ic{flex:none;width:2.3rem;height:2.3rem;border-radius:10px;background:var(--accent);display:grid;place-items:center}
+.notif .top{display:flex;justify-content:space-between;font-size:.8rem;color:var(--muted)}
+.notif b{display:block;font-size:.95rem}
+.notif p{margin:.1rem 0 0;font-size:.9rem}
+
+.toast{position:absolute;left:50%;bottom:6.2rem;transform:translateX(-50%);background:var(--ink);color:var(--bg);border-radius:999px;padding:.55rem 1.1rem;font-size:.93rem;white-space:nowrap;z-index:5;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<div class="stage">
+  <aside class="panel" aria-label="Guia do protótipo">
+    <h1>Leitura em Foco</h1>
+    <p>Protótipo navegável da proposta para o desafio CitizenTech. A jornada mostra um estudante com TDAH estudando um capítulo de programação do início ao fim, no celular.</p>
+    <p class="sim">A transformação pela inteligência artificial é simulada com um capítulo já transformado. Toque nos botões do celular ou escolha uma tela abaixo.</p>
+    <ol class="telas" id="telas"></ol>
+    <button class="reset" id="reset">Recomeçar a jornada</button>
+  </aside>
+
+  <div class="device" id="device">
+    <div class="status" aria-hidden="true"><span>9:41</span><span class="icons">
+      <svg width="17" height="11" viewBox="0 0 17 11"><rect x="0" y="7" width="3" height="4" rx="1" fill="currentColor"/><rect x="4.5" y="5" width="3" height="6" rx="1" fill="currentColor"/><rect x="9" y="2.5" width="3" height="8.5" rx="1" fill="currentColor"/><rect x="13.5" y="0" width="3" height="11" rx="1" fill="currentColor"/></svg>
+      <svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="16" height="8" rx="1.8" fill="currentColor"/><rect x="22.5" y="4" width="1.8" height="4" rx=".9" fill="currentColor" opacity=".5"/></svg>
+    </span></div>
+    <div class="app" id="app"></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+</div>
+
+<script>
+const EXEMPLO = {"versao_formato": "0.1", "titulo": "Triggers em PL/SQL", "fonte": "FIAP, capítulo 13 (material do curso, não incluído)", "mapa": {"objetivo": "Depois desta leitura, você vai conseguir criar triggers que validam, preenchem e registram dados automaticamente no Oracle.", "por_que_importa": "A regra fica no banco. Não importa qual sistema grava o dado: a trigger roda sempre.", "pre_requisitos": "INSERT, UPDATE e DELETE, e o básico de um bloco PL/SQL com BEGIN, END e IF.", "cenario": "A DBurger, uma hamburgueria fictícia com tabelas de pedidos, clientes e produtos."}, "partes": [{"titulo": "O que é uma trigger", "blocos": [{"titulo": "O que é uma trigger?", "minutos": 2, "texto_md": "Uma trigger é um bloco de código PL/SQL que roda sozinho quando algo acontece numa tabela.\n\nNinguém chama a trigger pelo nome. Um `INSERT`, `UPDATE` ou `DELETE` na tabela dispara a execução, como um sensor que acende a luz quando a porta abre.\n\nEssa é a diferença para procedures e funções: elas só rodam quando alguém as chama.", "codigo": null, "resultado": null, "termos": [{"termo": "Gatilho", "definicao": "nome em português para trigger. O material usa os dois."}, {"termo": "DML", "definicao": "os comandos que mexem nos dados: INSERT, UPDATE e DELETE."}], "notas_adaptacao": []}, {"titulo": "Para que serve?", "minutos": 2, "texto_md": "Três usos aparecem no capítulo inteiro:\n\n- **Validar:** barrar um dado errado antes de ele entrar, como um pedido com valor negativo.\n- **Atualizar outras tabelas:** um pedido novo atualiza o resumo do cliente.\n- **Auditar:** registrar quem mudou o quê e quando.\n\nA vantagem é que a regra fica num lugar só, dentro do banco. Qualquer sistema que grave naquela tabela passa pela trigger.", "codigo": null, "resultado": null, "termos": [{"termo": "Auditoria", "definicao": "histórico de alterações nos dados, usado em segurança e conformidade."}], "notas_adaptacao": []}], "pausa": {"pergunta": "Qual frase descreve uma trigger?", "codigo": null, "opcoes": ["Um bloco que roda quando alguém chama pelo nome", "Um bloco que roda sozinho quando um evento acontece numa tabela", "Uma consulta SELECT salva no banco", "Uma restrição de chave primária"], "correta": 1, "explicacao": "A trigger é disparada por um evento (INSERT, UPDATE ou DELETE). Chamar pelo nome é o jeito de executar procedures e funções."}}, {"titulo": "Antes ou depois", "blocos": [{"titulo": "Como uma trigger é escrita?", "minutos": 3, "texto_md": "Toda trigger responde a três perguntas: quando roda, em qual evento e em qual tabela.", "codigo": {"legenda": "Sintaxe básica", "linguagem": "plsql", "fonte": "CREATE OR REPLACE TRIGGER nome_da_trigger\n{BEFORE | AFTER} {INSERT | UPDATE | DELETE}\nON tabela_alvo\n[FOR EACH ROW]\nBEGIN\n  -- seu código PL/SQL\nEND;", "anotacoes": [{"linhas": [1, 1], "texto": "CREATE OR REPLACE cria a trigger ou substitui a versão que já existe."}, {"linhas": [2, 2], "texto": "Quando roda (BEFORE ou AFTER) e qual evento dispara. Dá para combinar eventos com OR."}, {"linhas": [3, 3], "texto": "A tabela vigiada."}, {"linhas": [4, 4], "texto": "Opcional. Com ele, a trigger roda uma vez para cada linha afetada. Isso fica claro na parte 3."}, {"linhas": [5, 7], "texto": "O que a trigger faz."}]}, "resultado": null, "termos": [], "notas_adaptacao": []}, {"titulo": "BEFORE: conferir antes de gravar", "minutos": 3, "texto_md": "Uma trigger `BEFORE` roda antes de o dado ser gravado. É o lugar certo para validar ou ajustar valores.\n\nRegra da DBurger: o valor total de um pedido nunca pode ser negativo.", "codigo": {"legenda": "Código-fonte 1 do material", "linguagem": "plsql", "fonte": "CREATE OR REPLACE TRIGGER TRG_DB_VALIDA_VALOR_TOT_PEDIDO\nBEFORE INSERT ON DB_PEDIDO\nFOR EACH ROW\nBEGIN\n  IF :NEW.vl_tot_pedido < 0 THEN\n    RAISE_APPLICATION_ERROR(-20001, 'Loja(' || :NEW.nr_loja || ') e o Pedido(' || :NEW.nr_pedido ||\n      '). O valor do pedido SEMPRE DEVE ser maior ou igual a zero.' ||\n      'Impossível de prosseguir!');\n  END IF;\nEND TRG_DB_VALIDA_VALOR_TOT_PEDIDO;", "anotacoes": [{"linhas": [2, 2], "texto": "Roda antes de cada INSERT em DB_PEDIDO."}, {"linhas": [5, 5], "texto": ":NEW.vl_tot_pedido é o valor que está tentando entrar."}, {"linhas": [6, 8], "texto": "RAISE_APPLICATION_ERROR cancela a operação e mostra a mensagem escrita aqui."}]}, "resultado": "Inserir um pedido de R$ −25.678,90 dá o erro ORA-20001 e nada é gravado. Com valor 0, o pedido entra normalmente.", "termos": [{"termo": ":NEW", "definicao": "os valores da linha que está entrando ou sendo alterada."}], "notas_adaptacao": []}, {"titulo": "AFTER: reagir depois", "minutos": 3, "texto_md": "Uma trigger `AFTER` roda depois que a operação aconteceu. Serve para tarefas que dependem dela, como atualizar outra tabela ou gravar um registro.\n\nRegra da DBurger: a cada pedido novo, o cadastro do cliente ganha +1 em `QT_PEDIDOS_REALIZADOS` e a data da última compra.", "codigo": {"legenda": "Código-fonte 5 do material", "linguagem": "plsql", "fonte": "CREATE OR REPLACE TRIGGER TRG_DB_PEDIDO_ATUALIZA_CLIENTE\nAFTER INSERT ON DB_PEDIDO\nFOR EACH ROW\nBEGIN\n  UPDATE DB_CLIENTE\n  SET    QT_PEDIDOS_REALIZADOS = NVL(QT_PEDIDOS_REALIZADOS, 0) + 1,\n         DT_ULTIMA_COMPRA = SYSDATE\n  WHERE  NR_CLIENTE = :NEW.NR_CLIENTE;\nEND TRG_DB_PEDIDO_ATUALIZA_CLIENTE;", "anotacoes": [{"linhas": [2, 2], "texto": "Roda depois de cada INSERT em DB_PEDIDO."}, {"linhas": [6, 6], "texto": "NVL troca nulo por 0, para a soma funcionar na primeira compra."}, {"linhas": [8, 8], "texto": "Atualiza só o cliente do pedido que acabou de entrar."}]}, "resultado": "A cliente 8 não tinha contagem de pedidos. Depois do INSERT, passa a ter 1 pedido e a data de hoje como última compra.", "termos": [], "notas_adaptacao": ["O enunciado também pede preencher VL_ULTIMO_PEDIDO, mas o código do material não faz isso. Bastaria acrescentar VL_ULTIMO_PEDIDO = :NEW.VL_TOT_PEDIDO no SET.", "O material diz que AFTER serve para alterações “confirmadas”. Na prática, a trigger AFTER roda antes do COMMIT, dentro da mesma transação: se algo der errado depois, tudo é desfeito junto."]}], "pausa": {"pergunta": "A trigger BEFORE do pedido está ativa. O que acontece com este comando?", "codigo": {"linguagem": "plsql", "fonte": "INSERT INTO DB_PEDIDO (..., VL_TOT_PEDIDO, ...)\nVALUES (..., -50, ...);"}, "opcoes": ["O pedido é gravado com −50", "O pedido é gravado com 0", "A operação é cancelada e aparece o erro ORA-20001", "A trigger é desativada"], "correta": 2, "explicacao": "Como −50 é menor que zero, a trigger chama RAISE_APPLICATION_ERROR antes da gravação. Nada entra na tabela."}}, {"titulo": "Uma vez ou por linha", "blocos": [{"titulo": "Uma vez ou uma vez por linha?", "minutos": 2, "texto_md": "Imagine um `UPDATE` que altera 50 produtos de uma vez.\n\n- **Statement-level**, sem `FOR EACH ROW`: a trigger roda 1 vez para o comando inteiro.\n- **Row-level**, com `FOR EACH ROW`: a trigger roda 50 vezes, uma para cada linha.\n\nStatement-level serve para registros gerais, que não dependem dos dados de cada linha. Row-level serve quando você precisa olhar cada linha para validar, calcular ou registrar valores.", "codigo": null, "resultado": null, "termos": [{"termo": "Statement-level", "definicao": "trigger de nível de comando (ou declaração)."}, {"termo": "Row-level", "definicao": "trigger de nível de linha."}], "notas_adaptacao": []}, {"titulo": "Uma trigger para três eventos", "minutos": 3, "texto_md": "Uma trigger pode vigiar `INSERT`, `UPDATE` e `DELETE` ao mesmo tempo. Dentro dela, três funções dizem qual evento disparou: `INSERTING`, `UPDATING` e `DELETING`. Cada uma vale TRUE ou FALSE.\n\nRegra da DBurger: registrar quem mexeu na tabela de produtos, quando e o que fez.", "codigo": {"legenda": "Trecho resumido do código-fonte 8", "linguagem": "plsql", "fonte": "CREATE OR REPLACE TRIGGER TRG_DB_AUDITORIA_OPERACAO\nAFTER INSERT OR UPDATE OR DELETE\nON DB_PRODUTO\nDECLARE\n  v_evento VARCHAR2(10);\nBEGIN\n  IF INSERTING THEN\n    v_evento := 'INSERT';\n  ELSIF UPDATING THEN\n    v_evento := 'UPDATE';\n  ELSIF DELETING THEN\n    v_evento := 'DELETE';\n  END IF;\n  -- grava v_evento, USER e SYSDATE\n  -- na tabela DB_AUDITORIA_OPERACAO\nEND;", "anotacoes": [{"linhas": [2, 2], "texto": "Três eventos na mesma trigger, ligados por OR."}, {"linhas": [3, 3], "texto": "Sem FOR EACH ROW: é statement-level."}, {"linhas": [4, 5], "texto": "DECLARE cria variáveis antes do BEGIN."}, {"linhas": [7, 13], "texto": "Descobre qual evento aconteceu."}]}, "resultado": "Depois de um INSERT e um UPDATE em DB_PRODUTO, a tabela de auditoria ganha duas linhas: uma com INSERT e outra com UPDATE.", "termos": [], "notas_adaptacao": ["No código 8 do material, os valores USER e SYSDATE estão em ordem trocada em relação às colunas DT_EVENTO e NM_USUARIO. E o CREATE TABLE do código 7 não cria NM_LOCALIZACAO_EVENTO, que aparece no diagrama e no INSERT. Se der erro ao rodar, confira esses dois pontos. O código 10 já usa a ordem certa."]}, {"titulo": ":NEW e :OLD", "minutos": 3, "texto_md": "Em triggers row-level você enxerga a linha antes e depois da mudança.\n\n| Evento | :OLD | :NEW |\n| --- | --- | --- |\n| INSERT | vazio (nulo) | a linha nova |\n| UPDATE | valores antes | valores depois |\n| DELETE | a linha removida | vazio (nulo) |\n\n\nNa DBurger, a auditoria row-level grava as duas versões quando um preço muda.", "codigo": {"legenda": "Trecho simplificado do código-fonte 10", "linguagem": "plsql", "fonte": "v_ds_evento := 'Novo valor R$ ' || :new.vl_unitario ||\n               ', valor anterior R$ ' || :old.vl_unitario;", "anotacoes": [{"linhas": [1, 1], "texto": ":new.vl_unitario é o preço depois do UPDATE."}, {"linhas": [2, 2], "texto": ":old.vl_unitario é o preço antes."}]}, "resultado": "O produto passou de R$ 13 para R$ 23 e a auditoria registrou os dois valores, além do percentual de lucro antigo e novo.", "termos": [{"termo": ":OLD", "definicao": "os valores que a linha tinha antes da operação."}], "notas_adaptacao": []}], "pausa": {"pergunta": "Numa trigger row-level disparada por DELETE, qual pseudo-coluna tem os dados da linha?", "codigo": null, "opcoes": [":NEW", ":OLD", "As duas", "Nenhuma"], "correta": 1, "explicacao": "No DELETE a linha está saindo, então só existe a versão antiga: :OLD. O :NEW fica nulo."}}, {"titulo": "Controle fino", "blocos": [{"titulo": "WHEN: só age se a condição valer", "minutos": 3, "texto_md": "A cláusula `WHEN` fica antes do `BEGIN` e filtra quando a trigger age.\n\nRegra da DBurger: cliente novo cadastrado com 0 estrelas recebe o status 'N', de novo.", "codigo": {"legenda": "Código-fonte 12 do material (sem os comentários)", "linguagem": "plsql", "fonte": "CREATE OR REPLACE TRIGGER TRG_DB_CLIENTE_STATUS_NOVO\nBEFORE INSERT\nON DB_CLIENTE\nFOR EACH ROW\nWHEN (NEW.QT_ESTRELAS = 0)\nBEGIN\n  :NEW.ST_CLIENTE := 'N';\nEND TRG_DB_CLIENTE_STATUS_NOVO;", "anotacoes": [{"linhas": [2, 2], "texto": "BEFORE, porque o valor muda antes de gravar."}, {"linhas": [5, 5], "texto": "Só age quando a quantidade de estrelas é 0. Repare: dentro do WHEN se escreve NEW sem os dois-pontos."}, {"linhas": [7, 7], "texto": "Numa trigger BEFORE dá para atribuir valor a :NEW."}]}, "resultado": "Maria (0 estrelas) foi enviada com status 'A' e gravada como 'N'. Gustavo (3 estrelas) continuou com 'A'.", "termos": [], "notas_adaptacao": []}, {"titulo": "Interromper com uma mensagem clara", "minutos": 3, "texto_md": "`RAISE_APPLICATION_ERROR` para a operação e devolve uma mensagem que você escreve.\n\n- O código de erro precisa estar entre −20000 e −20999.\n- O comando que disparou a trigger é desfeito: nada daquele INSERT ou UPDATE é gravado.\n\nRegra da DBurger: o valor médio de compra de um cliente nunca pode ser negativo.", "codigo": {"legenda": "Código-fonte 14 do material (sem os comentários)", "linguagem": "plsql", "fonte": "CREATE OR REPLACE TRIGGER TRG_DB_CLIENTE_VL_MEDIO_COMPRA\nBEFORE INSERT OR UPDATE\nON DB_CLIENTE\nFOR EACH ROW\nBEGIN\n  IF :NEW.VL_MEDIO_COMPRA < 0 THEN\n    RAISE_APPLICATION_ERROR(-20111, 'O valor médio de compra desse cliente é negativo(' ||\n      :new.vl_medio_compra || '). Corrija e tente novamente!');\n  END IF;\nEND TRG_DB_CLIENTE_VL_MEDIO_COMPRA;", "anotacoes": [{"linhas": [2, 2], "texto": "Vigia inserções e alterações."}, {"linhas": [6, 6], "texto": "A condição que barra o dado."}, {"linhas": [7, 7], "texto": "−20111 está dentro da faixa permitida."}]}, "resultado": "Tentar gravar −237 como valor médio da Maria dá o erro ORA-20111. O COMMIT logo depois não grava nada, porque não sobrou alteração pendente.", "termos": [], "notas_adaptacao": []}, {"titulo": "Desligar e religar", "minutos": 2, "texto_md": "Às vezes é preciso desligar uma trigger por um tempo, como numa carga grande de dados ou numa manutenção programada.", "codigo": {"legenda": "Baseado nos códigos-fonte 16 e 18", "linguagem": "plsql", "fonte": "ALTER TRIGGER TRG_DB_CLIENTE_VL_MEDIO_COMPRA DISABLE;\nALTER TRIGGER TRG_DB_CLIENTE_VL_MEDIO_COMPRA ENABLE;\n\nSELECT TRIGGER_NAME, STATUS\nFROM   USER_TRIGGERS\nWHERE  TRIGGER_NAME = 'TRG_DB_CLIENTE_VL_MEDIO_COMPRA';", "anotacoes": [{"linhas": [1, 1], "texto": "Desliga a trigger."}, {"linhas": [2, 2], "texto": "Liga de volta."}, {"linhas": [4, 6], "texto": "Consulta o status: ENABLED ou DISABLED."}]}, "resultado": "Com a trigger desligada, o valor −237 foi gravado. Religada, a regra volta a valer para as próximas alterações. O −237 que já entrou continua lá.", "termos": [], "notas_adaptacao": []}], "pausa": {"pergunta": "Qual destes códigos de erro pode ser usado em RAISE_APPLICATION_ERROR?", "codigo": null, "opcoes": ["−1", "−20500", "20500", "−30000"], "correta": 1, "explicacao": "A faixa reservada para erros da aplicação vai de −20000 a −20999. Só −20500 está dentro dela."}}, {"titulo": "Na prática", "blocos": [{"titulo": "Com moderação", "minutos": 2, "texto_md": "Cada trigger adiciona trabalho a cada operação na tabela. Quatro cuidados ajudam a manter o banco rápido e previsível:\n\n- Mantenha o código da trigger curto e simples.\n- Evite triggers que disparam outras em cadeia, porque isso pode virar um loop.\n- Prefira statement-level quando não precisa olhar cada linha.\n- Evite várias triggers para o mesmo evento na mesma tabela. Junte a lógica numa só.", "codigo": null, "resultado": null, "termos": [], "notas_adaptacao": []}, {"titulo": "Exercício guiado: preencher sozinho", "minutos": 3, "texto_md": "Regra da DBurger: ao associar um produto a uma loja, a trigger preenche o código (pela sequence), a data de cadastro e o status 'I', de indisponível.\n\nRepare no padrão: `BEFORE INSERT` + `FOR EACH ROW` + atribuir valores em `:NEW`. É exatamente o que o exercício final pede.", "codigo": {"legenda": "Código-fonte 19 do material (sem os comentários)", "linguagem": "plsql", "fonte": "CREATE OR REPLACE TRIGGER TRG_DB_ASSOCIA_PRODUTO_LOJA\nBEFORE INSERT\nON DB_PRODUTO_LOJA\nFOR EACH ROW\nBEGIN\n  SELECT SQ_DB_PRODUTO_LOJA.NEXTVAL, SYSDATE, 'I'\n  INTO   :NEW.CD_PRODUTO_LOJA, :NEW.DT_CADASTRO, :NEW.ST_ATUAL\n  FROM   DUAL;\nEND TRG_DB_ASSOCIA_PRODUTO_LOJA;", "anotacoes": [{"linhas": [2, 2], "texto": "BEFORE, porque os valores precisam existir antes de gravar."}, {"linhas": [6, 8], "texto": "Um SELECT ... INTO preenche três campos de :NEW de uma vez. DUAL é uma tabela de apoio do Oracle com uma linha só."}]}, "resultado": "O INSERT informa só NR_LOJA e CD_PRODUTO. O código, a data e o status aparecem preenchidos.", "termos": [], "notas_adaptacao": []}], "pausa": {"pergunta": "Por que o exercício guiado usa BEFORE e não AFTER?", "codigo": null, "opcoes": ["Porque AFTER não funciona com INSERT", "Porque só dá para alterar :NEW antes de a linha ser gravada", "Porque BEFORE é sempre mais rápido", "Porque a tabela tem chave estrangeira"], "correta": 1, "explicacao": "Numa trigger AFTER a linha já foi gravada, e o Oracle não deixa atribuir valores a :NEW. Para preencher campos, a trigger precisa ser BEFORE."}}], "fechamento": {"essencial": ["Trigger é código que roda sozinho quando acontece um INSERT, UPDATE ou DELETE numa tabela.", "BEFORE valida ou ajusta; AFTER reage. Com FOR EACH ROW ela roda por linha e enxerga :NEW e :OLD.", "WHEN filtra, RAISE_APPLICATION_ERROR barra a operação e ALTER TRIGGER liga e desliga."], "exercicio": {"enunciado": "Na tabela DB_END_CLI, todo endereço novo deve receber DT_INICIO com a data e hora atuais e ST_END com 'I'. Escreva a trigger FOR EACH ROW.", "dica": "Copie o padrão do exercício guiado: BEFORE INSERT ON DB_END_CLI, FOR EACH ROW e duas atribuições em :NEW.", "solucao": {"linguagem": "plsql", "fonte": "CREATE OR REPLACE TRIGGER TRG_DB_END_CLI_PADRAO\nBEFORE INSERT\nON DB_END_CLI\nFOR EACH ROW\nBEGIN\n  :NEW.DT_INICIO := SYSDATE;\n  :NEW.ST_END    := 'I';\nEND TRG_DB_END_CLI_PADRAO;"}}}};
+const EXEMPLO_PADRAO_JSON = JSON.stringify(EXEMPLO);
+const esc = s => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+function inline(s){
+  return esc(s).replace(/`([^`]+)`/g,'<code class="i">$1</code>').replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>");
+}
+function md(src){
+  const L = String(src||"").replace(/\r/g,"").split("\n");
+  let out = "", para = [], i = 0;
+  const flush = ()=>{ if (para.length){ out += `<p class="bloco-texto">${inline(para.join("\n"))}</p>`; para = []; } };
+  while (i < L.length){
+    const l = L[i];
+    if (/^\s*\|/.test(l)){
+      flush(); const rows = [];
+      while (i < L.length && /^\s*\|/.test(L[i])){ rows.push(L[i]); i++; }
+      const cells = r => r.trim().replace(/^\|/,"").replace(/\|$/,"").split("|").map(c=>c.trim());
+      const body = rows.filter(r=>!/^\s*\|?\s*:?-{2,}/.test(r));
+      if (body.length){
+        const [h,...rest] = body;
+        out += `<div class="tw"><table><thead><tr>${cells(h).map(c=>`<th>${inline(c)}</th>`).join("")}</tr></thead><tbody>${rest.map(r=>`<tr>${cells(r).map(c=>`<td>${inline(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+      }
+      continue;
+    }
+    if (/^\s*[-*]\s+/.test(l)){
+      flush(); let items = [];
+      while (i < L.length && /^\s*[-*]\s+/.test(L[i])){ items.push(L[i].replace(/^\s*[-*]\s+/,"")); i++; }
+      out += `<ul>${items.map(t=>`<li>${inline(t)}</li>`).join("")}</ul>`;
+      continue;
+    }
+    if (!l.trim()) flush(); else para.push(l.trim());
+    i++;
+  }
+  flush();
+  return out;
+}
+
+const KW_SQL = new Set("CREATE OR REPLACE TRIGGER BEFORE AFTER INSERT UPDATE DELETE ON FOR EACH ROW BEGIN END IF THEN ELSIF ELSE DECLARE INTO SET WHERE SELECT FROM WHEN ALTER DISABLE ENABLE VALUES NOT NULL VARCHAR2 VARCHAR NUMBER INTEGER DATE CHAR AND RAISE_APPLICATION_ERROR NVL SYSDATE USER INSERTING UPDATING DELETING DUAL NEXTVAL CURRVAL TABLE DROP PRIMARY KEY FOREIGN REFERENCES JOIN INNER LEFT RIGHT ORDER BY GROUP HAVING COMMIT ROLLBACK PROCEDURE FUNCTION RETURN RETURNS IS AS LOOP WHILE CURSOR OPEN FETCH CLOSE EXCEPTION OTHERS RAISE IN OUT DISTINCT CASE EXIT CONSTRAINT DEFAULT UNIQUE INDEX VIEW SEQUENCE COUNT SUM AVG MIN MAX LIKE BETWEEN EXISTS UNION ALL DBMS_OUTPUT PUT_LINE TYPE ROWTYPE BOOLEAN TRUE FALSE".split(" "));
+const KW_JS = new Set("const let var function return if else for while do switch case break continue class new import from export default await async try catch finally throw true false null undefined this typeof instanceof of in extends super yield".split(" "));
+const KW_PY = new Set("def return if elif else for while in import from as class None True False and or not with try except finally raise lambda pass break continue yield global nonlocal is assert async await print self".split(" "));
+function kwPara(ling){
+  const l = String(ling||"").toLowerCase();
+  if (/sql/.test(l)) return {set:KW_SQL, ci:true, com:"--"};
+  if (/py/.test(l)) return {set:KW_PY, ci:false, com:"#"};
+  if (/java|js|ts|c#|csharp|kotlin|go|rust|dart|php|c\+\+|cpp|swift/.test(l) || l==="c") return {set:KW_JS, ci:false, com:"//"};
+  return {set:new Set(), ci:false, com:null};
+}
+function hlLine(line, cfg){
+  const comRe = cfg.com==="--" ? "--.*$" : cfg.com==="#" ? "#.*$" : cfg.com==="//" ? "\\/\\/.*$" : "(?!x)x";
+  const re = new RegExp(`(${comRe})|('(?:[^'\\\\]|\\\\.|'')*'|"(?:[^"\\\\]|\\\\.)*")|(:(?:NEW|OLD)\\b)|([A-Za-z_][A-Za-z0-9_]*)`,"gi");
+  let out = "", last = 0, m;
+  while ((m = re.exec(line))){
+    out += esc(line.slice(last, m.index));
+    if (m[1]) out += `<span class="tc">${esc(m[1])}</span>`;
+    else if (m[2]) out += `<span class="ts">${esc(m[2])}</span>`;
+    else if (m[3]) out += `<span class="tn">${esc(m[3])}</span>`;
+    else if (cfg.set.has(cfg.ci ? m[4].toUpperCase() : m[4])) out += `<span class="tk">${esc(m[4])}</span>`;
+    else out += esc(m[4]);
+    last = re.lastIndex;
+  }
+  return out + esc(line.slice(last));
+}
+function codeBlock(c){
+  if (!c || !c.fonte) return "";
+  const cfg = kwPara(c.linguagem);
+  const lines = String(c.fonte).replace(/\r/g,"").split("\n").map((l,i)=>`<span class="ln" data-n="${i+1}"><span class="no">${i+1}</span>${hlLine(l,cfg)}</span>`).join("");
+  return `<div class="code">${c.legenda?`<div class="cap">${esc(c.legenda)}</div>`:""}<pre><code>${lines}</code></pre></div>`;
+}
+
+const I = {
+  back:`<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  sound:`<svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+  stop:`<svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>`,
+  offline:`<svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18h10a4 4 0 00.6-7.95A6 6 0 006.2 9.1 4.5 4.5 0 007 18z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5 13.5l2 2 3.5-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  bell:`<svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0112 0v5l2 2H4z M10 20a2 2 0 004 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>`,
+  doc:`<svg viewBox="0 0 40 48" aria-hidden="true"><rect x="2" y="2" width="36" height="44" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2.5"/><rect x="9" y="12" width="22" height="3.5" rx="1.7" fill="var(--accent)"/><rect x="9" y="20" width="18" height="3.5" rx="1.7" fill="var(--accent)" opacity=".55"/><rect x="9" y="28" width="20" height="3.5" rx="1.7" fill="var(--accent)" opacity=".55"/></svg>`,
+  stack:`<svg viewBox="0 0 72 60" aria-hidden="true"><rect x="6" y="6" width="60" height="10" rx="5" fill="var(--line)"/><rect x="6" y="25" width="48" height="10" rx="5" fill="var(--line)"/><rect x="6" y="44" width="54" height="10" rx="5" fill="var(--line)"/></svg>`
+};
+
+const TELAS = [
+  ["Boas-vindas","Apresenta o app em uma frase e a ideia de ler um bloco por vez."],
+  ["Preferências de leitura","Tema e tamanho do texto ajustados antes de começar."],
+  ["Biblioteca vazia","Convida a adicionar o primeiro texto."],
+  ["Adicionar texto","O estudante cola o material de estudo. Há um texto de exemplo pronto."],
+  ["Preparando","A IA monta o plano e escreve as partes; a leitura começa assim que a parte 1 fica pronta."],
+  ["Mapa","Objetivo, pré-requisitos, partes e tempo total antes de começar."],
+  ["Bloco de texto","Uma ideia por tela, com progresso visível e o botão Ouvir."],
+  ["Bloco com código","Tocar numa explicação acende as linhas do código, e tocar no código acende a explicação."],
+  ["Pausa rápida","Pergunta ao fim de cada parte, com resposta imediata e sem nota."],
+  ["Fechamento","O essencial em 3 pontos, um exercício e a autoavaliação do foco."],
+  ["Lembrete de revisão","Agenda uma notificação para revisar o texto depois."],
+  ["Biblioteca com progresso","Texto concluído, disponível offline e com a revisão marcada."]
+];
+
+const S = {
+  tela:"boas-vindas",
+  prefs:{tema:"auto", tamanho:1},
+  temTexto:false, carregado:false,
+  prontas:EXEMPLO.partes.map(()=>false), planoOk:false, timer:null,
+  pos:0, answers:{}, concluido:false, foco:null,
+  lembrete:0, agendado:null, falando:false
+};
+const LEMBRETES = [["Amanhã","às 19h"],["Em 3 dias","às 19h"],["Em 1 semana","às 19h"]];
+const TAMANHOS = ["0.96rem","1.06rem","1.2rem"];
+const $ = id => document.getElementById(id);
+
+function aplicarPrefs(){
+  const r = document.documentElement;
+  if (S.prefs.tema === "auto") r.removeAttribute("data-theme"); else r.setAttribute("data-theme", S.prefs.tema);
+  const a = $("app");
+  a.style.setProperty("--fs", TAMANHOS[S.prefs.tamanho]);
+  a.classList.toggle("texto-menor", S.prefs.tamanho === 0);
+  a.classList.toggle("texto-maior", S.prefs.tamanho === 2);
+}
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove("show"), 2200);
+}
+
+function seq(){
+  const s = [{kind:"map", key:"map", part:0}];
+  EXEMPLO.partes.forEach((p,i)=>{
+    if (S.prontas[i]){
+      p.blocos.forEach((b,j)=>s.push({kind:"content", key:`p${i}b${j}`, part:i+1, b}));
+      s.push({kind:"check", key:`p${i}q`, part:i+1, q:p.pausa});
+    } else s.push({kind:"pend", key:`p${i}b0`, part:i+1, p:i});
+  });
+  s.push({kind:"end", key:"end", part:EXEMPLO.partes.length+1});
+  return s;
+}
+let SEQ = seq();
+
+function numeroTela(){
+  switch (S.tela){
+    case "boas-vindas": return 1;
+    case "preferencias": return 2;
+    case "biblioteca": return S.concluido ? 12 : 3;
+    case "adicionar": return 4;
+    case "preparando": return 5;
+    case "lembrete": return 11;
+    case "leitor": {
+      const it = SEQ[S.pos];
+      if (!it || it.kind==="map") return 6;
+      if (it.kind==="content") return it.b.codigo ? 8 : 7;
+      if (it.kind==="check") return 9;
+      if (it.kind==="end") return 10;
+      return 6;
+    }
+  }
+  return 1;
+}
+function renderGuia(){
+  const n = numeroTela();
+  $("telas").innerHTML = TELAS.map(([t,d],i)=>`<li><a href="#tela-${i+1}" ${i+1===n?'aria-current="true"':""}><span>${esc(t)}${i+1===n?`<span class="d">${esc(d)}</span>`:""}</span></a></li>`).join("");
+}
+
+function iniciarPreparo(){
+  clearTimeout(S.timer);
+  S.planoOk = false; S.prontas = S.prontas.map(()=>false); SEQ = seq();
+  let passo = 0;
+  const tick = ()=>{
+    if (passo === 0) S.planoOk = true; else S.prontas[passo-1] = true;
+    passo++; SEQ = seq();
+    atualizarAoVivo();
+    if (passo <= S.prontas.length) S.timer = setTimeout(tick, 900);
+  };
+  S.timer = setTimeout(tick, 1200);
+}
+function prepararTudo(){ clearTimeout(S.timer); S.planoOk = true; S.prontas = S.prontas.map(()=>true); S.temTexto = true; SEQ = seq(); }
+function atualizarAoVivo(){
+  if (S.tela === "preparando") render();
+  else if (S.tela === "leitor"){
+    const antes = SEQ[S.pos] ? SEQ[S.pos].key : "map";
+    const it = SEQ.find(x=>x.key===antes);
+    S.pos = Math.max(0, SEQ.indexOf(it));
+    const cur = SEQ[S.pos];
+    if (cur && (cur.kind==="pend" || cur.kind==="map" || cur.kind==="end")) render(); else renderTrackOnly();
+  }
+}
+
+function textoParaFala(b){
+  const limpo = t => String(t||"").replace(/\|/g," ").replace(/[-*]\s+/g,"").replace(/`([^`]*)`/g,"$1").replace(/\*\*/g,"").replace(/\s+/g," ").trim();
+  return [b.titulo, limpo(b.texto_md), b.resultado ? "O que acontece ao rodar: " + limpo(b.resultado) : ""].filter(Boolean).join(". ");
+}
+function pararFala(){ if ("speechSynthesis" in window) speechSynthesis.cancel(); S.falando = false; }
+function falar(b){
+  if (!("speechSynthesis" in window)){ toast("Este navegador não tem leitura em voz alta."); return; }
+  if (S.falando){ pararFala(); render(false); return; }
+  const u = new SpeechSynthesisUtterance(textoParaFala(b));
+  u.lang = "pt-BR"; u.rate = 1;
+  const v = speechSynthesis.getVoices().find(v=>/^pt(-|_)BR/i.test(v.lang)) || speechSynthesis.getVoices().find(v=>/^pt/i.test(v.lang));
+  if (v) u.voice = v;
+  u.onend = u.onerror = ()=>{ S.falando = false; const btn = document.querySelector(".listen"); if (btn){ btn.setAttribute("aria-pressed","false"); btn.innerHTML = `${I.sound}Ouvir`; } };
+  speechSynthesis.cancel(); speechSynthesis.speak(u); S.falando = true;
+  const btn = document.querySelector(".listen"); if (btn){ btn.setAttribute("aria-pressed","true"); btn.innerHTML = `${I.stop}Parar`; }
+}
+
+function tela(bar, body, foot, extra){
+  return `${bar||""}${extra||""}<div class="body" id="body">${body}</div>${foot?`<div class="foot ${foot.col?"col":""}">${foot.html}</div>`:""}`;
+}
+function barra(titulo, voltar){
+  return `<div class="bar">${voltar?`<button class="back" data-go="${voltar}">${I.back}Voltar</button>`:`<span class="sp"></span>`}<span class="t">${esc(titulo)}</span><span class="sp"></span></div>`;
+}
+
+function tBoasVindas(){
+  const ilu = `<svg viewBox="0 0 280 150" role="img" aria-label="Blocos de leitura, um em destaque">
+    <rect x="0" y="6" width="210" height="18" rx="9" fill="var(--line)"/>
+    <rect x="0" y="38" width="250" height="18" rx="9" fill="var(--line)"/>
+    <rect x="0" y="70" width="280" height="30" rx="12" fill="var(--accent)"/>
+    <rect x="16" y="81" width="120" height="8" rx="4" fill="var(--on-accent)" opacity=".85"/>
+    <rect x="0" y="114" width="180" height="18" rx="9" fill="var(--line)"/>
+    <rect x="236" y="117" width="12" height="12" rx="2" transform="rotate(45 242 123)" fill="var(--mark)"/>
+  </svg>`;
+  return tela("", `<div class="welcome">${ilu}<h2>Um bloco de cada vez.</h2><p>Cole o texto que você precisa estudar. O app transforma em blocos curtos, com pausas para retomar o foco.</p></div>`,
+    {col:true, html:`<button class="primary wide" data-go="preferencias">Começar</button>`});
+}
+function tPreferencias(){
+  const tema = [["light","Claro"],["dark","Escuro"],["auto","Automático"]].map(([v,l])=>`<button data-tema="${v}" aria-pressed="${S.prefs.tema===v}">${l}</button>`).join("");
+  const tam = ["Menor","Padrão","Maior"].map((l,i)=>`<button data-tam="${i}" aria-pressed="${S.prefs.tamanho===i}">${l}</button>`).join("");
+  return tela(barra("Preferências","boas-vindas"),
+    `<h2>Como você prefere ler?</h2><p class="muted">Dá para mudar depois.</p>
+     <h3>Tema</h3><div class="seg" role="group" aria-label="Tema">${tema}</div>
+     <h3>Tamanho do texto</h3><div class="seg" role="group" aria-label="Tamanho do texto">${tam}</div>
+     <div class="preview${S.prefs.tamanho===0?" texto-menor":S.prefs.tamanho===2?" texto-maior":""}"><b>Prévia</b>Este é um texto de exemplo. Utilize as opções acima para ajustar o tema e o tamanho da fonte até que a leitura fique confortável para você.</div>`,
+    {col:true, html:`<button class="primary wide" data-go="biblioteca">Continuar</button>`});
+}
+function cardTexto(){
+  const it = SEQ[S.pos];
+  const total = SEQ.length - 1;
+  const pct = S.concluido ? 100 : Math.round(100*S.pos/total);
+  const acertos = SEQ.filter(x=>x.kind==="check" && S.answers[x.key]!==undefined);
+  const certos = acertos.filter(x=>S.answers[x.key]===x.q.correta).length;
+  const tags = [];
+  if (S.concluido) tags.push(`<span class="tag ok">Concluído</span>`);
+  tags.push(`<span class="tag">${I.offline}Disponível offline</span>`);
+  if (S.agendado) tags.push(`<span class="tag mk">${I.bell}Revisão: ${esc(S.agendado)}</span>`);
+  return `<article class="doc">
+    <h3>${esc(EXEMPLO.titulo)}</h3>
+    <div class="tags">${tags.join("")}</div>
+    <div class="pbar" aria-label="Progresso ${pct}%"><span style="width:${pct}%"></span></div>
+    <div class="facts-mini">
+      <div>${S.concluido ? "Leitura completa" : `Passo ${S.pos+1} de ${SEQ.length}`}, cerca de 34 minutos no total</div>
+      ${acertos.length?`<div>${certos} de ${acertos.length} pausas rápidas certas</div>`:""}
+      ${S.foco?`<div>Seu foco neste texto: ${S.foco} de 5</div>`:""}
+    </div>
+    <div class="row"><button class="ghost" data-acao="${S.concluido?"reler":"continuar"}">${S.concluido?"Ler de novo":"Continuar a leitura"}</button></div>
+  </article>`;
+}
+function tBiblioteca(){
+  const corpo = S.temTexto
+    ? `<h2>Seus textos</h2>${cardTexto()}`
+    : `<h2>Seus textos</h2><div class="empty">${I.stack}<p>Nenhum texto ainda. Adicione o material que você precisa estudar.</p></div>`;
+  return tela(barra("Biblioteca","adicionar"), corpo, {col:true, html:`<button class="primary wide" data-go="adicionar">Adicionar texto</button>`});
+}
+function tAdicionar(){
+  const corpo = S.carregado
+    ? `<div class="loaded">${I.doc}<div><b>Capítulo 13: Triggers em PL/SQL</b><small>Material de curso com 58 páginas, colado no app</small></div></div>
+       <div class="row"><button class="link" data-acao="limpar">Trocar texto</button></div>`
+    : `<label class="sr" for="txt">Texto para estudar</label><textarea id="txt" placeholder="Cole aqui o texto de um capítulo, apostila ou tutorial de programação.">${esc(S.textoDigitado||"")}</textarea>
+       <div class="row"><button class="ghost" data-acao="exemplo">Usar texto de exemplo</button></div>`;
+  return tela(barra("Adicionar texto","biblioteca"),
+    `<h2>O que você vai estudar?</h2><p class="muted">Copie o texto do PDF ou da página e cole abaixo. Sumário, cabeçalhos e listas de figuras são descartados.</p>${corpo}
+     <p class="privacy">Não cole dados pessoais. O texto é enviado para a inteligência artificial que faz a transformação.</p>`,
+    {col:true, html:`<label style="display:flex;align-items:center;gap:.5rem;font-size:.93rem;color:var(--ink);cursor:pointer"><input type="checkbox" id="toggleIA" ${S.usarIAReal?"checked":""}> Processar com IA Real (Requer Internet)</label><button class="primary wide" data-acao="transformar" ${(S.carregado || (S.textoDigitado && S.textoDigitado.trim().split(/\s+/).length >= 20))?"":"disabled"} id="btnTransf">Transformar</button>`});
+}
+function tPreparando(){
+  const linha = (nome, ok, rodando)=>`<li><span class="dot ${ok?"ok":rodando?"run":""}" aria-hidden="true">${ok?"✓":""}</span><div><b>${esc(nome)}</b><small>${ok?"Pronta":rodando?"Escrevendo…":"Na fila"}</small></div></li>`;
+  const prox = !S.planoOk ? -1 : S.prontas.indexOf(false);
+  let itens = linha("Plano: mapa, partes e fechamento", S.planoOk, !S.planoOk);
+  EXEMPLO.partes.forEach((p,i)=>{ itens += linha(`Parte ${i+1}: ${p.titulo}`, S.prontas[i], i===prox); });
+  const pode = S.prontas[0];
+  return tela(barra("Preparando"),
+    `<h2>${S.planoOk?esc(EXEMPLO.titulo):"Lendo o texto…"}</h2>
+     <p class="muted">Primeiro o app monta o plano do texto inteiro. Depois escreve uma parte por vez, e cada parte é conferida antes de aparecer.</p>
+     <ol class="steps">${itens}</ol>`,
+    {col:true, html:`<button class="primary wide" data-acao="ler" ${pode?"":"disabled"}>${pode?"Começar a ler":"A parte 1 fica pronta em instantes"}</button>`});
+}
+
+function tLembrete(){
+  const ops = LEMBRETES.map(([a,b],i)=>`<button class="choice" data-lem="${i}" aria-pressed="${S.lembrete===i}"><span>${a}</span><small>${b}</small></button>`).join("");
+  const [a,b] = LEMBRETES[S.lembrete];
+  return tela(barra("Revisão","leitor-fim"),
+    `<h2>Quando revisar?</h2><p class="muted">Revisar no dia seguinte ajuda a fixar o conteúdo. O lembrete fica no celular e funciona sem internet.</p>
+     <div class="choices" role="group" aria-label="Quando revisar">${ops}</div>
+     <h3>Como o lembrete vai aparecer</h3>
+     <div class="notif" aria-label="Prévia da notificação"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="3.5" rx="1.7" fill="var(--on-accent)" opacity=".6"/><rect x="3" y="10.5" width="18" height="3.5" rx="1.7" fill="var(--on-accent)"/><rect x="3" y="16" width="12" height="3.5" rx="1.7" fill="var(--on-accent)" opacity=".6"/></svg></span>
+       <div style="flex:1"><div class="top"><span>Leitura em Foco</span><span>${esc(a)}, ${esc(b.replace("às ",""))}</span></div><b>Hora de revisar: ${esc(EXEMPLO.titulo)}</b><p>5 pausas rápidas, cerca de 3 minutos.</p></div></div>`,
+    {html:`<button class="link" data-go="biblioteca-final">Agora não</button><button class="primary" data-acao="agendar">Agendar revisão</button>`});
+}
+
+function trackHtml(){
+  let last = -1;
+  return SEQ.map((x,i)=>{
+    const gap = x.part!==last && i>0 ? " gap" : ""; last = x.part;
+    const cls = "sg" + (x.kind==="check"?" chk":"") + (x.kind==="pend"?" pend":"") + (i<S.pos?" done":"") + (i===S.pos?" cur":"") + gap;
+    const label = x.kind==="check"?"Pausa rápida":x.kind==="content"?x.b.titulo:x.kind==="pend"?"Parte em preparo":x.kind==="map"?"Mapa":"Fechamento";
+    return `<button class="${cls}" data-i="${i}" aria-label="${esc(label)}" ${i===S.pos?'aria-current="step"':""}></button>`;
+  }).join("");
+}
+function renderTrackOnly(){ const t = document.querySelector(".track"); if (t) t.innerHTML = trackHtml(); renderGuia(); }
+function nomeParte(i){ return EXEMPLO.partes[i] ? EXEMPLO.partes[i].titulo : ""; }
+
+function cMap(){
+  const m = EXEMPLO.mapa;
+  const total = EXEMPLO.partes.reduce((s,p)=>s+p.blocos.reduce((a,b)=>a+b.minutos,0),0);
+  const rota = EXEMPLO.partes.map((p,i)=>`<li><span>${esc(p.titulo)}</span><span class="t">${S.prontas[i]?`${p.blocos.reduce((a,b)=>a+b.minutos,0)} min`:"em preparo"}</span></li>`).join("");
+  return `<div class="meta"><span>Mapa da leitura</span><span>~${total} min</span></div>
+  <h2>${esc(EXEMPLO.titulo)}</h2>
+  <p class="goal">${inline(m.objetivo)}</p>
+  <div class="facts">
+    <div class="fact"><b>Por que importa</b>${inline(m.por_que_importa)}</div>
+    <div class="fact"><b>Você já precisa saber</b>${inline(m.pre_requisitos)}</div>
+  </div>
+  <h3>O caminho</h3><ol class="route">${rota}</ol>
+  <p class="muted">Um bloco por tela. Ao fim de cada parte há uma pergunta rápida.</p>`;
+}
+function cContent(it){
+  const b = it.b, cont = SEQ.filter(x=>x.kind==="content"), n = cont.indexOf(it)+1;
+  let h = `<div class="meta"><span>Bloco ${n} de ${S.prontas.every(Boolean)?cont.length:cont.length+"+"}, ~${b.minutos} min</span><button class="listen" data-acao="ouvir" aria-pressed="${S.falando}">${S.falando?I.stop+"Parar":I.sound+"Ouvir"}</button></div>
+  <h2>${esc(b.titulo)}</h2>${md(b.texto_md)}`;
+  if (b.codigo){
+    h += codeBlock(b.codigo);
+    const an = b.codigo.anotacoes||[];
+    if (an.length){
+      h += `<p class="tip">Toque numa explicação ou numa linha do código.</p><ul class="notes">${an.map(a=>{
+        const [x,y]=a.linhas; return `<li><button class="note" data-a="${x}" data-z="${y}"><span class="lnum">${x===y?`linha ${x}`:`linhas ${x}–${y}`}</span><span>${inline(a.texto)}</span></button></li>`;
+      }).join("")}</ul>`;
+    }
+  }
+  if (b.resultado) h += `<div class="result"><b>O que acontece ao rodar</b>${inline(b.resultado)}</div>`;
+  if (b.termos && b.termos.length) h += `<div class="terms">${b.termos.map(t=>`<div class="term"><b>${esc(t.termo)}</b>${inline(t.definicao)}</div>`).join("")}</div>`;
+  if (b.notas_adaptacao && b.notas_adaptacao.length) h += b.notas_adaptacao.map(t=>`<div class="adapt"><b>Nota da adaptação: vale conferir no original</b>${inline(t)}</div>`).join("");
+  return h;
+}
+function cCheck(it){
+  const q = it.q, a = S.answers[it.key];
+  const opts = q.opcoes.map((o,k)=>{
+    let c = "opt"; if (a!==undefined){ if (k===q.correta) c+=" right"; else if (k===a) c+=" wrong"; }
+    return `<button class="${c}" data-k="${k}" ${a!==undefined?"disabled":""}>${inline(o)}</button>`;
+  }).join("");
+  const fb = a!==undefined ? `<div class="fb"><b>${a===q.correta?"Isso mesmo.":"Quase. A resposta certa está em verde."}</b>${inline(q.explicacao)}</div>` : "";
+  return `<div class="meta"><span class="chk-label">Pausa rápida</span><span>sem nota</span></div><p class="q">${inline(q.pergunta)}</p>${q.codigo?codeBlock(q.codigo):""}<div class="opts">${opts}</div>${fb}`;
+}
+function cPend(it){
+  return `<div class="meta"><span>Parte ${it.p+1}</span><span>em preparo</span></div><h2>${esc(nomeParte(it.p))}</h2><p>Esta parte ainda está sendo preparada. Ela aparece aqui sozinha em instantes.</p>`;
+}
+function cEnd(){
+  const f = EXEMPLO.fechamento, ex = f.exercicio;
+  const checks = SEQ.filter(x=>x.kind==="check"), feitas = checks.filter(x=>S.answers[x.key]!==undefined);
+  const certas = feitas.filter(x=>S.answers[x.key]===x.q.correta).length;
+  const sol = ex.solucao && ex.solucao.fonte ? codeBlock({legenda:"Uma solução possível", linguagem:ex.solucao.linguagem, fonte:ex.solucao.fonte}) : "";
+  const escala = [1,2,3,4,5].map(n=>`<button data-foco="${n}" aria-pressed="${S.foco===n}" aria-label="Foco ${n} de 5">${n}</button>`).join("");
+  return `<div class="meta"><span>Fechamento</span><span>~5 min de prática</span></div>
+  <h2>O essencial</h2><ol class="ess">${f.essencial.map(t=>`<li>${inline(t)}</li>`).join("")}</ol>
+  ${feitas.length?`<p>Você acertou ${certas} de ${feitas.length} pausas rápidas.</p>`:""}
+  <h3>Mini-exercício</h3><p>${inline(ex.enunciado)}</p>
+  <div class="row"><button class="ghost" aria-expanded="false" data-rv="dica">Mostrar dica</button>${sol?`<button class="ghost" aria-expanded="false" data-rv="sol">Mostrar solução</button>`:""}</div>
+  <div id="dica" hidden><div class="term"><b>Dica</b>${inline(ex.dica)}</div></div>${sol?`<div id="sol" hidden>${sol}</div>`:""}
+  <h3>Como foi seu foco neste texto?</h3>
+  <div class="scale" role="group" aria-label="Autoavaliação do foco">${escala}</div>
+  <div class="scale-ends"><span>Disperso</span><span>Muito focado</span></div>`;
+}
+function tLeitor(){
+  const it = SEQ[S.pos];
+  const corpo = it.kind==="map"?cMap():it.kind==="content"?cContent(it):it.kind==="check"?cCheck(it):it.kind==="end"?cEnd():cPend(it);
+  const titulo = it.kind==="map"?"Mapa":it.kind==="end"?"Fechamento":`Parte ${it.part} de ${EXEMPLO.partes.length}`;
+  const travado = it.kind==="check" && S.answers[it.key]===undefined;
+  let foot;
+  if (it.kind==="end") foot = {html:`<button class="prev" data-acao="anterior">Voltar</button><button class="primary" data-go="lembrete">Agendar revisão</button>`};
+  else foot = {html:`<button class="prev" data-acao="anterior" ${S.pos===0?"disabled":""}>Voltar</button><button class="primary" data-acao="proximo" ${travado?"disabled":""}>${it.kind==="map"?"Começar":travado?"Responda para seguir":S.pos===SEQ.length-2?"Ir para o fechamento":"Continuar"}</button>`};
+  return tela(barra(titulo,"biblioteca"), corpo, foot, `<div class="track" aria-label="Progresso da leitura">${trackHtml()}</div>`);
+}
+
+function render(rolarTopo=true){
+  const app = $("app");
+  const corpoAntes = $("body"); const scroll = corpoAntes ? corpoAntes.scrollTop : 0;
+  const html = {"boas-vindas":tBoasVindas, "preferencias":tPreferencias, "biblioteca":tBiblioteca, "adicionar":tAdicionar, "preparando":tPreparando, "leitor":tLeitor, "lembrete":tLembrete}[S.tela]();
+  app.innerHTML = html;
+  if (!rolarTopo && $("body")) $("body").scrollTop = scroll;
+  if (S.tela==="leitor" && SEQ[S.pos].kind==="end") S.concluido = true;
+  renderGuia();
+}
+function ir(t){
+  pararFala();
+  if (t==="adicionar"){
+    clearTimeout(S.timer);
+    S.carregado = false;
+    S.textoDigitado = "";
+    S.temTexto = false;
+    S.planoOk = false;
+    S.pos = 0;
+    S.answers = {};
+    S.concluido = false;
+    S.foco = null;
+    S.agendado = null;
+    S.mapa = null;
+    S.partes = [];
+    S.blocos = [];
+    S.fechamento = null;
+    S.prontas = [];
+    S.tela = "adicionar";
+    render();
+    const txtEl = document.getElementById("txt");
+    if (txtEl) txtEl.value = "";
+    return;
+  }
+  if (t==="leitor-fim"){ S.tela="leitor"; S.pos=SEQ.length-1; return render(); }
+  if (t==="biblioteca-final"){ S.tela="biblioteca"; return render(); }
+  S.tela = t; render();
+}
+function moverLeitura(i){ if (i<0||i>=SEQ.length) return; pararFala(); S.pos = i; render(); }
+
+function limpar(){ document.querySelectorAll(".ln.on,.note.on").forEach(e=>e.classList.remove("on")); }
+function acenderFaixa(a,z){ for (let n=a;n<=z;n++){ const l = document.querySelector(`.ln[data-n="${n}"]`); if (l) l.classList.add("on"); } }
+function acenderNota(b){ limpar(); b.classList.add("on"); acenderFaixa(+b.dataset.a, +b.dataset.z); }
+function acenderLinha(ln){
+  const n = +ln.dataset.n; limpar();
+  [...document.querySelectorAll(".note")].filter(b=>n>=+b.dataset.a && n<=+b.dataset.z).forEach(b=>{ b.classList.add("on"); acenderFaixa(+b.dataset.a, +b.dataset.z); });
+}
+const app = $("app");
+app.addEventListener("mouseover", e=>{ const nb = e.target.closest(".note"); if (nb) return acenderNota(nb); const ln = e.target.closest(".ln"); if (ln) acenderLinha(ln); });
+app.addEventListener("mouseout", e=>{ if (e.target.closest(".note,.ln") && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest(".note,.ln"))) limpar(); });
+app.addEventListener("focusin", e=>{ const nb = e.target.closest(".note"); if (nb) acenderNota(nb); });
+
+app.addEventListener("click", e=>{
+  const t = e.target;
+  const nb = t.closest(".note"); if (nb) return acenderNota(nb);
+  const ln = t.closest(".ln"); if (ln) return acenderLinha(ln);
+  const go = t.closest("[data-go]"); if (go) return ir(go.dataset.go);
+  const tm = t.closest("[data-tema]"); if (tm){ S.prefs.tema = tm.dataset.tema; aplicarPrefs(); return render(false); }
+  const tz = t.closest("[data-tam]"); if (tz){ S.prefs.tamanho = +tz.dataset.tam; aplicarPrefs(); return render(false); }
+  const sg = t.closest(".sg"); if (sg) return moverLeitura(+sg.dataset.i);
+  const op = t.closest(".opt"); if (op){ const it = SEQ[S.pos]; if (S.answers[it.key]===undefined){ S.answers[it.key] = +op.dataset.k; render(false); } return; }
+  const rv = t.closest("[data-rv]"); if (rv){ const el = $(rv.dataset.rv); el.hidden = !el.hidden; rv.setAttribute("aria-expanded", String(!el.hidden)); return; }
+  const fc = t.closest("[data-foco]"); if (fc){ S.foco = +fc.dataset.foco; return render(false); }
+  const lm = t.closest("[data-lem]"); if (lm){ S.lembrete = +lm.dataset.lem; return render(false); }
+  const ac = t.closest("[data-acao]"); if (!ac) return;
+  switch (ac.dataset.acao){
+    case "exemplo": S.carregado = true; S.textoDigitado = ""; return render(false);
+    case "limpar": S.carregado = false; S.textoDigitado = ""; return render(false);
+    case "transformar": {
+      const toggleIA = document.getElementById("toggleIA");
+      const usarIAReal = toggleIA && toggleIA.checked;
+      S.usarIAReal = usarIAReal;
+      const txtEl = document.getElementById("txt");
+      const textoAtual = txtEl ? txtEl.value.trim() : (S.textoDigitado ? S.textoDigitado.trim() : "");
+
+      if (!S.carregado && !textoAtual) {
+        toast("Por favor, insira ou cole um texto antes de transformar.");
+        alert("O campo de texto está vazio. Cole um texto de estudo ou selecione o texto de exemplo.");
+        return;
+      }
+
+      if (!usarIAReal) {
+        Object.assign(EXEMPLO, JSON.parse(EXEMPLO_PADRAO_JSON));
+        S.temTexto = true; S.pos = 0; S.answers = {}; S.concluido = false; S.foco = null; S.agendado = null;
+        S.prontas = EXEMPLO.partes.map(()=>false);
+        iniciarPreparo();
+        return ir("preparando");
+      } else {
+        const conteudoEnviado = textoAtual
+          ? textoAtual
+          : "Capítulo 13: Triggers em PL/SQL. Uma trigger é um bloco de código PL/SQL que roda automaticamente quando ocorre um evento DML (INSERT, UPDATE ou DELETE) em uma tabela do banco de dados Oracle.";
+
+        clearTimeout(S.timer);
+        S.temTexto = true; S.pos = 0; S.answers = {}; S.concluido = false; S.foco = null; S.agendado = null;
+        S.planoOk = false;
+        EXEMPLO.titulo = "Lendo o texto…";
+        EXEMPLO.mapa = null;
+        EXEMPLO.partes = [];
+        EXEMPLO.fechamento = null;
+        S.prontas = [];
+        SEQ = seq();
+        ir("preparando");
+
+        const payload = JSON.stringify({
+          conteudo: conteudoEnviado,
+          usuarioId: 1
+        });
+        const opcoesFetch = {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payload
+        };
+        const chamarBackend = url => fetch(url, opcoesFetch).then(res => {
+          if (!res.ok) throw new Error("Erro HTTP: " + res.status);
+          return res.json();
+        });
+
+        chamarBackend("http://10.0.2.2:8080/api/textos/transformar")
+        .catch(() => chamarBackend("http://10.0.3.2:8080/api/textos/transformar"))
+        .then(data => {
+          if (data.titulo) EXEMPLO.titulo = data.titulo;
+          if (data.mapa) EXEMPLO.mapa = data.mapa;
+          if (data.partes && Array.isArray(data.partes) && data.partes.length) {
+            EXEMPLO.partes = data.partes;
+          }
+          if (data.fechamento) EXEMPLO.fechamento = data.fechamento;
+          S.idTexto = data.idTexto || null;
+          S.planoOk = true;
+          S.prontas = EXEMPLO.partes.map(()=>true);
+          SEQ = seq();
+          atualizarAoVivo();
+        })
+        .catch(err => {
+          console.error("Erro na requisição da IA:", err);
+          toast("Erro de rede ao conectar à IA. Verifique se o backend está ativo.");
+          alert("Erro de rede ao processar com a IA Real: " + err.message);
+        });
+        return;
+      }
+    }
+    case "ler": S.pos = 0; return ir("leitor");
+    case "continuar": return ir("leitor");
+    case "reler": S.pos = 0; S.answers = {}; S.concluido = false; return ir("leitor");
+    case "anterior": return moverLeitura(S.pos-1);
+    case "proximo": return moverLeitura(S.pos+1);
+    case "ouvir": return falar(SEQ[S.pos].b);
+    case "agendar": { const [a,b] = LEMBRETES[S.lembrete]; S.agendado = `${a.toLowerCase()}, ${b.replace("às ","")}`; ir("biblioteca-final"); return toast("Revisão agendada"); }
+  }
+});
+app.addEventListener("input", e=>{ if (e.target.id==="txt"){ S.textoDigitado = e.target.value; const b = $("btnTransf"); if (b) b.disabled = e.target.value.trim().split(/\s+/).length < 20; if (b && !b.disabled) S.carregado = false; } });
+document.addEventListener("keydown", e=>{
+  if (S.tela!=="leitor" || (e.target.closest && e.target.closest("textarea"))) return;
+  const btn = document.querySelector('[data-acao="proximo"]');
+  if (e.key==="ArrowRight" && btn && !btn.disabled) moverLeitura(S.pos+1);
+  if (e.key==="ArrowLeft") moverLeitura(S.pos-1);
+});
+
+function irParaTela(n){
+  pararFala();
+  const primeiro = pred => SEQ.findIndex(pred);
+  if (n>=6) prepararTudo();
+  switch (n){
+    case 1: S.tela="boas-vindas"; break;
+    case 2: S.tela="preferencias"; break;
+    case 3: S.tela="biblioteca"; S.temTexto=false; S.concluido=false; S.carregado=false; break;
+    case 4: S.tela="adicionar"; break;
+    case 5: S.carregado=true; S.temTexto=true; S.pos=0; S.answers={}; S.concluido=false; iniciarPreparo(); S.tela="preparando"; break;
+    case 6: S.tela="leitor"; S.pos=0; break;
+    case 7: S.tela="leitor"; S.pos=primeiro(x=>x.kind==="content" && !x.b.codigo); break;
+    case 8: S.tela="leitor"; S.pos=primeiro(x=>x.kind==="content" && x.b.codigo && x.b.codigo.anotacoes.length>=3); break;
+    case 9: S.tela="leitor"; S.pos=primeiro(x=>x.kind==="check"); break;
+    case 10: S.tela="leitor"; S.pos=SEQ.length-1; break;
+    case 11: S.concluido=true; S.tela="lembrete"; break;
+    case 12: S.concluido=true; if (!S.agendado) S.agendado="amanhã, 19h"; S.tela="biblioteca"; break;
+  }
+  if (S.pos<0) S.pos=0;
+  render();
+}
+function lerHash(){ const m = /^#tela-(\d{1,2})$/.exec(location.hash); if (m){ const n = +m[1]; if (n>=1 && n<=12) irParaTela(n); } }
+window.addEventListener("hashchange", lerHash);
+$("telas").addEventListener("click", e=>{ const a = e.target.closest("a"); if (a && a.getAttribute("href") === location.hash){ e.preventDefault(); lerHash(); } });
+$("reset").onclick = ()=>{
+  clearTimeout(S.timer); pararFala();
+  Object.assign(S, {tela:"boas-vindas", temTexto:false, carregado:false, prontas:S.prontas.map(()=>false), planoOk:false, pos:0, answers:{}, concluido:false, foco:null, lembrete:0, agendado:null});
+  SEQ = seq(); render();
+};
+if ("speechSynthesis" in window) speechSynthesis.getVoices();
+
+aplicarPrefs();
+render();
+lerHash();
+</script>
+</body>
+</html>
